@@ -5,32 +5,14 @@
 package term_test
 
 import (
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 
-	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
 
 func TestIsTerminalTerm(t *testing.T) {
-
-	dir, err := ioutil.TempDir("", "TestIsTerminalTerm")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
-	tty := filepath.Join(dir, "tty")
-	err = unix.Mknod(tty, unix.S_IFCHR, int(unix.Mkdev(5, 0)))
-	if err == unix.EPERM {
-		t.Skip("no permission to create terminal file, skipping test")
-	} else if err != nil {
-		t.Fatal(err)
-	}
-
-	file, err := os.Open(tty)
+	file, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
