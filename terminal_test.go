@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build aix darwin dragonfly freebsd linux,!appengine netbsd openbsd windows plan9 solaris
-
 package term
 
 import (
@@ -430,7 +428,7 @@ func TestOutputNewlines(t *testing.T) {
 	term := NewTerminal(buf, ">")
 
 	term.Write([]byte("1\n2\n"))
-	output := string(buf.Bytes())
+	output := buf.String()
 	const expected = "1\r\n2\r\n"
 
 	if output != expected {
