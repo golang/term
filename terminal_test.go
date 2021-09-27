@@ -407,7 +407,7 @@ func TestMakeRawState(t *testing.T) {
 		t.Fatalf("failed to get terminal state from GetState: %s", err)
 	}
 
-	if runtime.GOOS == "ios" || (runtime.GOOS == "darwin" && (runtime.GOARCH == "arm" || runtime.GOARCH == "arm64")) {
+	if runtime.GOOS == "ios" {
 		t.Skip("MakeRaw not allowed on iOS; skipping test")
 	}
 
