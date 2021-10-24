@@ -51,6 +51,13 @@ type Terminal struct {
 	// may be empty if the terminal doesn't support them.
 	Escape *EscapeCodes
 
+	// OnKey stores pairs of runes (which represents a keycode) and functions.
+	// Whenever a key is entered and the keycode of it exists in this map
+	// the corresponding functions gets called. The function takes the key
+	// as its only argument and returns if the normal behaviour, if existent,
+	// should continue.
+	OnKey map[rune]func(key rune) (resume bool)
+
 	// lock protects the terminal and the state in this object from
 	// concurrent processing of a key press and a Write() call.
 	lock sync.Mutex
@@ -449,9 +456,21 @@ func visualLength(runes []rune) int {
 	return length
 }
 
+// handleOnKey checks if the given key has a OnKey function assigned to it
+// which, if existent, gets called. Returns false if the corresponding OnKey
+// function returns also false, on all other cases true
+func (t *Terminal) handleOnKey(key rune) bool {
+	f, ok := t.OnKey[key]
+	return !ok || ok && f(key)
+}
+
 // handleKey processes the given key and, optionally, returns a line of text
 // that the user has entered.
 func (t *Terminal) handleKey(key rune) (line string, ok bool) {
+	if !t.handleOnKey(key) {
+		return
+	}
+
 	if t.pasteActive && key != keyEnter {
 		t.addKeyToLine(key)
 		return
@@ -739,22 +758,30 @@ func (t *Terminal) readLine() (line string, err error) {
 			}
 			if !t.pasteActive {
 				if key == keyCtrlD {
-					if len(t.line) == 0 {
-						return "", io.EOF
+					if t.handleOnKey(keyCtrlD) {
+						if len(t.line) == 0 {
+							return "", io.EOF
+						}
 					}
 				}
 				if key == keyCtrlC {
-					return "", io.EOF
+					if t.handleOnKey(keyCtrlC) {
+						return "", io.EOF
+					}
 				}
 				if key == keyPasteStart {
-					t.pasteActive = true
-					if len(t.line) == 0 {
-						lineIsPasted = true
+					if t.handleOnKey(keyPasteStart) {
+						t.pasteActive = true
+						if len(t.line) == 0 {
+							lineIsPasted = true
+						}
 					}
 					continue
 				}
 			} else if key == keyPasteEnd {
-				t.pasteActive = false
+				if t.handleOnKey(keyPasteEnd) {
+					t.pasteActive = false
+				}
 				continue
 			}
 			if !t.pasteActive {

@@ -253,6 +253,65 @@ func TestKeyPresses(t *testing.T) {
 	}
 }
 
+var onKeyTests = []struct {
+	in    string
+	out   string
+	onKey map[rune]func(key rune) bool
+	err   error
+}{
+	{
+		// Ctrl-C should terminate the readline
+		in:  "a\003\r",
+		err: io.EOF,
+	},
+	{
+		// Ctrl-C should do nothing
+		in: "a\003\r",
+		onKey: map[rune]func(key rune) bool{keyCtrlC: func(key rune) bool {
+			return false
+		}},
+		out: "a",
+	},
+	{
+		// catch Ctrl-D but terminate with Ctrl-C
+		in: "\004\r",
+		onKey: map[rune]func(key rune) bool{keyCtrlC: func(key rune) bool {
+			return false
+		}},
+		err: io.EOF,
+	},
+	{
+		// catch Ctrl-D but resume (expressed with the positive return)
+		in: "\004\r",
+		onKey: map[rune]func(key rune) bool{keyCtrlD: func(key rune) bool {
+			return true
+		}},
+		err: io.EOF,
+	},
+}
+
+func TestOnKey(t *testing.T) {
+	for i, test := range onKeyTests {
+		for j := 1; j < len(test.in); j++ {
+			c := &MockTerminal{
+				toSend:       []byte(test.in),
+				bytesPerRead: j,
+			}
+			ss := NewTerminal(c, "")
+			ss.OnKey = test.onKey
+			line, err := ss.ReadLine()
+			if line != test.out {
+				t.Errorf("Line resulting from test %d (%d bytes per read) was '%s', expected '%s'", i, j, line, test.out)
+				break
+			}
+			if err != test.err {
+				t.Errorf("Error resulting from test %d (%d bytes per read) was '%v', expected '%v'", i, j, err, test.err)
+				break
+			}
+		}
+	}
+}
+
 var renderTests = []struct {
 	in       string
 	received string
