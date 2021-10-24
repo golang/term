@@ -273,7 +273,7 @@ var onKeyTests = []struct {
 		out: "a",
 	},
 	{
-		// catch Ctrl-D but terminate with Ctrl-C
+		// Catch Ctrl-D but terminate with Ctrl-C
 		in: "\004\r",
 		onKey: map[rune]func(key rune) bool{keyCtrlC: func(key rune) bool {
 			return false
@@ -281,12 +281,20 @@ var onKeyTests = []struct {
 		err: io.EOF,
 	},
 	{
-		// catch Ctrl-D but resume (expressed with the positive return)
+		// Catch Ctrl-D but resume (expressed with the positive return)
 		in: "\004\r",
 		onKey: map[rune]func(key rune) bool{keyCtrlD: func(key rune) bool {
 			return true
 		}},
 		err: io.EOF,
+	},
+	{
+		// Catch the character 'e' and prevent it (with the false return) to be processed
+		in: "test\r",
+		onKey: map[rune]func(key rune) bool{'e': func(key rune) bool {
+			return false
+		}},
+		out: "tst",
 	},
 }
 
