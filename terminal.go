@@ -110,6 +110,7 @@ type Terminal struct {
 func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 	return &Terminal{
 		Escape:       &vt100EscapeCodes,
+		OnKey:        map[rune]func(key rune) (resume bool){},
 		c:            c,
 		prompt:       []rune(prompt),
 		termWidth:    80,
