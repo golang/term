@@ -181,6 +181,17 @@ func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 		return r, b[l:]
 	}
 
+	if !pasteActive && len(b) >= 2 && b[0] == keyEscape {
+		switch b[1] {
+		case 'b':
+			return keyAltLeft, b[2:]
+		case 'f':
+			return keyAltRight, b[2:]
+		case 127:
+			return keyDeleteWord, b[2:]
+		}
+	}
+
 	if !pasteActive && len(b) >= 3 && b[0] == keyEscape && b[1] == '[' {
 		switch b[2] {
 		case 'A':
