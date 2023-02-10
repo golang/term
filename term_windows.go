@@ -5,6 +5,7 @@
 package term
 
 import (
+	"context"
 	"os"
 
 	"golang.org/x/sys/windows"
@@ -76,4 +77,48 @@ func readPassword(fd int) ([]byte, error) {
 	f := os.NewFile(uintptr(h), "stdin")
 	defer f.Close()
 	return readPasswordLine(f)
+}
+
+func readPasswordWithContext(fd int, ctx context.Context) ([]byte, error) {
+	var st uint32
+	if err := windows.GetConsoleMode(windows.Handle(fd), &st); err != nil {
+		return nil, err
+	}
+	old := st
+
+	st &^= (windows.ENABLE_ECHO_INPUT | windows.ENABLE_LINE_INPUT)
+	st |= (windows.ENABLE_PROCESSED_OUTPUT | windows.ENABLE_PROCESSED_INPUT)
+	if err := windows.SetConsoleMode(windows.Handle(fd), st); err != nil {
+		return nil, err
+	}
+
+	defer windows.SetConsoleMode(windows.Handle(fd), old)
+
+	var h windows.Handle
+	p, _ := windows.GetCurrentProcess()
+	if err := windows.DuplicateHandle(p, windows.Handle(fd), p, &h, 0, false, windows.DUPLICATE_SAME_ACCESS); err != nil {
+		return nil, err
+	}
+
+	f := os.NewFile(uintptr(h), "stdin")
+	defer f.Close()
+
+	// Buffer for reading in separate goroutine
+	type Buffer struct {
+		line []byte
+		err  error
+	}
+	doneChannel := make(chan Buffer, 1)
+	go func() {
+		// The following blocks and cannot be unblocked
+		ret, err := readPasswordLine(f)
+		doneChannel <- Buffer{line: ret, err: err}
+	}()
+	select {
+	case <-ctx.Done():
+		f.Close() // Blocks until terminal receives a return key :-(
+		return make([]byte, 0), ctx.Err()
+	case buf := <-doneChannel:
+		return buf.line, buf.err
+	}
 }
