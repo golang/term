@@ -5,7 +5,6 @@
 package term_test
 
 import (
-	"io/ioutil"
 	"os"
 	"runtime"
 	"testing"
@@ -14,7 +13,7 @@ import (
 )
 
 func TestIsTerminalTempFile(t *testing.T) {
-	file, err := ioutil.TempFile("", "TestIsTerminalTempFile")
+	file, err := os.CreateTemp("", "TestIsTerminalTempFile")
 	if err != nil {
 		t.Fatal(err)
 	}
