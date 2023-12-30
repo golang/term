@@ -1,4 +1,4 @@
-module golang.org/x/term
+module github.com/golang/term
 
 go 1.18
 
