@@ -1,4 +1,4 @@
-module github.com/golang/term
+module github.com/SudoStdUser/term
 
 go 1.18
 
