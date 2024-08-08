@@ -961,7 +961,9 @@ func (s *stRingBuffer) Add(a string) {
 		s.entries = make([]string, defaultNumEntries)
 		s.max = defaultNumEntries
 	}
-
+	if s.entries[s.head] == a {
+		return // already there at the top
+	}
 	s.head = (s.head + 1) % s.max
 	s.entries[s.head] = a
 	if s.size < s.max {
