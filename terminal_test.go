@@ -6,8 +6,10 @@ package term
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
+	"reflect"
 	"runtime"
 	"testing"
 )
@@ -433,5 +435,31 @@ func TestOutputNewlines(t *testing.T) {
 
 	if output != expected {
 		t.Errorf("incorrect output: was %q, expected %q", output, expected)
+	}
+}
+
+func TestHistoryNoDuplicates(t *testing.T) {
+	c := &MockTerminal{
+		toSend:       []byte("a\rb\rb\rb\rc\r"), // 5 with 3 duplicate "b"
+		bytesPerRead: 1,
+	}
+	ss := NewTerminal(c, "> ")
+	count := 0
+	for {
+		_, err := ss.ReadLine()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		count++
+	}
+	if count != 5 {
+		t.Errorf("expected 5 lines, got %d", count)
+	}
+	h := ss.History()
+	if len(h) != 3 {
+		t.Errorf("history length should be 3, got %d", len(h))
+	}
+	if !reflect.DeepEqual(h, []string{"c", "b", "a"}) {
+		t.Errorf("history unexpected: %v", h)
 	}
 }
