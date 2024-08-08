@@ -1,19 +1,12 @@
 # Go terminal/console support
 
-[![Go Reference](https://pkg.go.dev/badge/golang.org/x/term.svg)](https://pkg.go.dev/golang.org/x/term)
+[![Go Reference](https://pkg.go.dev/badge/fortio.org/term.svg)](https://pkg.go.dev/fortio.org/term)
 
 This repository provides Go terminal and console support packages.
+It's a fork of the [golang.org/x/term](https://pkg.go.dev/golang.org/x/term) pending approval of improvements upstream.
 
 ## Download/Install
 
-The easiest way to install is to run `go get -u golang.org/x/term`. You can
-also manually git clone the repository to `$GOPATH/src/golang.org/x/term`.
+The easiest way to use is to run `go get -u fortio.org/term`.
 
-## Report Issues / Send Patches
-
-This repository uses Gerrit for code changes. To learn how to submit changes to
-this repository, see https://golang.org/doc/contribute.html.
-
-The main issue tracker for the term repository is located at
-https://github.com/golang/go/issues. Prefix your issue with "x/term:" in the
-subject line, so it is easy to find.
+Rather than use this lowlevel library, use [fortio.org/terminal](https://github.com/fortio/terminal#terminal) which wraps this one into a higher level and simpler more powerful API.

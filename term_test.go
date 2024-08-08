@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"testing"
 
-	"golang.org/x/term"
+	"fortio.org/term"
 )
 
 func TestIsTerminalTempFile(t *testing.T) {

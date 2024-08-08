@@ -1,4 +1,4 @@
-module golang.org/x/term
+module fortio.org/term
 
 go 1.18
 
