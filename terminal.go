@@ -86,7 +86,7 @@ type Terminal struct {
 
 	// history contains previously entered commands so that they can be
 	// accessed with the up and down keys.
-	history stRingBuffer
+	history *stRingBuffer
 	// historyIndex stores the currently accessed history entry, where zero
 	// means the immediately previous entry.
 	historyIndex int
@@ -109,6 +109,7 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 		termHeight:   24,
 		echo:         true,
 		historyIndex: -1,
+		history:      NewHistory(defaultNumEntries),
 	}
 }
 
@@ -797,6 +798,37 @@ func (t *Terminal) readLine() (line string, err error) {
 	}
 }
 
+// History returns a slice of strings containing the history of entered commands so far.
+func (t *Terminal) History() []string {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	res := []string{}
+	for i := 0; ; i++ {
+		c, ok := t.history.NthPreviousEntry(i)
+		if !ok {
+			break
+		}
+		res = append(res, c)
+	}
+	return res
+}
+
+// NewHistory resets the history to one of a given capacity.
+func (t *Terminal) NewHistory(capacity int) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	t.history = NewHistory(capacity)
+}
+
+// AddToHistory populates history.
+func (t *Terminal) AddToHistory(entry ...string) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for _, e := range entry {
+		t.history.Add(e)
+	}
+}
+
 // SetPrompt sets the prompt to be used when reading subsequent lines.
 func (t *Terminal) SetPrompt(prompt string) {
 	t.lock.Lock()
@@ -915,9 +947,17 @@ type stRingBuffer struct {
 	size int
 }
 
+func NewHistory(capacity int) *stRingBuffer {
+	return &stRingBuffer{
+		entries: make([]string, capacity),
+		max:     capacity,
+	}
+}
+
+const defaultNumEntries = 100
+
 func (s *stRingBuffer) Add(a string) {
 	if s.entries == nil {
-		const defaultNumEntries = 100
 		s.entries = make([]string, defaultNumEntries)
 		s.max = defaultNumEntries
 	}
