@@ -113,7 +113,7 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 		termHeight:   24,
 		echo:         true,
 		historyIndex: -1,
-		history:      NewHistory(defaultNumEntries),
+		history:      NewHistory(DefaultHistoryEntries),
 		autoHistory:  true,
 	}
 }
@@ -844,6 +844,15 @@ func (t *Terminal) AutoHistory(onOff bool) {
 	t.lock.Unlock()
 }
 
+// ReplaceLast replaces the most recent history entry with the given string.
+// Enables to add invalid commands to the history for editing purpose and
+// replace them with the corrected version. Returns the replaced entry.
+func (t *Terminal) ReplaceLatest(entry string) string {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	return t.history.Replace(entry)
+}
+
 // SetPrompt sets the prompt to be used when reading subsequent lines.
 func (t *Terminal) SetPrompt(prompt string) {
 	t.lock.Lock()
@@ -962,6 +971,7 @@ type stRingBuffer struct {
 	size int
 }
 
+// Creates a new ring buffer of strings with the given capacity.
 func NewHistory(capacity int) *stRingBuffer {
 	return &stRingBuffer{
 		entries: make([]string, capacity),
@@ -969,21 +979,29 @@ func NewHistory(capacity int) *stRingBuffer {
 	}
 }
 
-const defaultNumEntries = 100
+// DefaultHistoryEntries is the default number of entries in the history.
+const DefaultHistoryEntries = 100
 
 func (s *stRingBuffer) Add(a string) {
-	if s.entries == nil {
-		s.entries = make([]string, defaultNumEntries)
-		s.max = defaultNumEntries
-	}
 	if s.entries[s.head] == a {
-		return // already there at the top
+		// Already there at the top, so don't add.
+		// Also has the nice side effect of ignoring empty strings,
+		// no s.size check on purpose.
+		return
 	}
 	s.head = (s.head + 1) % s.max
 	s.entries[s.head] = a
 	if s.size < s.max {
 		s.size++
 	}
+}
+
+// Replace theoretically could panic on an empty ring buffer but
+// it's harmless on strings.
+func (s *stRingBuffer) Replace(a string) string {
+	previous := s.entries[s.head]
+	s.entries[s.head] = a
+	return previous
 }
 
 // NthPreviousEntry returns the value passed to the nth previous call to Add.
