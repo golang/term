@@ -462,4 +462,9 @@ func TestHistoryNoDuplicates(t *testing.T) {
 	if !reflect.DeepEqual(h, []string{"c", "b", "a"}) {
 		t.Errorf("history unexpected: %v", h)
 	}
+	ss.ReplaceLatest("x")
+	h = ss.History()
+	if !reflect.DeepEqual(h, []string{"x", "b", "a"}) {
+		t.Errorf("history unexpected: %v", h)
+	}
 }
