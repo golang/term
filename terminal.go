@@ -844,7 +844,7 @@ func (t *Terminal) AutoHistory(onOff bool) {
 	t.lock.Unlock()
 }
 
-// ReplaceLast replaces the most recent history entry with the given string.
+// ReplaceLatest replaces the most recent history entry with the given string.
 // Enables to add invalid commands to the history for editing purpose and
 // replace them with the corrected version. Returns the replaced entry.
 func (t *Terminal) ReplaceLatest(entry string) string {
