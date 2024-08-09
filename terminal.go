@@ -94,6 +94,10 @@ type Terminal struct {
 	// the incomplete, initial line. That value is stored in
 	// historyPending.
 	historyPending string
+	// autoHistory, if true, causes lines to be automatically added to the history.
+	// If false, call AddToHistory to add lines to the history for instance only adding
+	// successful commands. Defaults to true. This is controlled through AutoHistory(bool).
+	autoHistory bool
 }
 
 // NewTerminal runs a VT100 terminal on the given ReadWriter. If the ReadWriter is
@@ -110,6 +114,7 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 		echo:         true,
 		historyIndex: -1,
 		history:      NewHistory(defaultNumEntries),
+		autoHistory:  true,
 	}
 }
 
@@ -772,8 +777,10 @@ func (t *Terminal) readLine() (line string, err error) {
 		t.outBuf = t.outBuf[:0]
 		if lineOk {
 			if t.echo {
-				t.historyIndex = -1
-				t.history.Add(line)
+				t.historyIndex = -1 // Resets the key up behavior/historyPending.
+				if t.autoHistory {
+					t.history.Add(line)
+				}
 			}
 			if lineIsPasted {
 				err = ErrPasteIndicator
@@ -827,6 +834,14 @@ func (t *Terminal) AddToHistory(entry ...string) {
 	for _, e := range entry {
 		t.history.Add(e)
 	}
+}
+
+// AutoHistory sets whether lines are automatically added to the history
+// before being returned by ReadLine() or not. Defaults to true.
+func (t *Terminal) AutoHistory(onOff bool) {
+	t.lock.Lock()
+	t.autoHistory = onOff
+	t.lock.Unlock()
 }
 
 // SetPrompt sets the prompt to be used when reading subsequent lines.
