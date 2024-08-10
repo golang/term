@@ -980,7 +980,8 @@ func NewHistory(capacity int) *stRingBuffer {
 }
 
 // DefaultHistoryEntries is the default number of entries in the history.
-const DefaultHistoryEntries = 100
+// Use 99 (and not 100) so printing History's index 1-99 using %02d looks good.
+const DefaultHistoryEntries = 99
 
 func (s *stRingBuffer) Add(a string) {
 	if s.entries[s.head] == a {
