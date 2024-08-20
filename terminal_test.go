@@ -396,6 +396,32 @@ func TestReadPasswordLineEnd(t *testing.T) {
 	}
 }
 
+func MockAutoCompleteCallback(line string, pos int, key rune) (newLine string, newPos int, ok bool) {
+	return "not-good", pos, true
+}
+
+func TestReadPasswordDisabledAutoCompleteCallback(t *testing.T) {
+	input := "testgood\ranother line\r"
+	expectedPassword := "testgood"
+	terminal := NewTerminal(
+		&MockTerminal{
+			toSend:       []byte(input),
+			bytesPerRead: 1,
+		},
+		"prompt")
+	terminal.AutoCompleteCallback = MockAutoCompleteCallback
+	password, err := terminal.ReadPassword("Password: ")
+	if err != nil {
+		t.Fatalf("failed to read password: %v", err)
+	}
+	if password != expectedPassword {
+		t.Fatalf("failed to read password, got %q", password)
+	}
+	if terminal.AutoCompleteCallback == nil {
+		t.Fatalf("AutoCompleteCallback should not be nil after ReadPassword")
+	}
+}
+
 func TestMakeRawState(t *testing.T) {
 	fd := int(os.Stdout.Fd())
 	if !IsTerminal(fd) {
