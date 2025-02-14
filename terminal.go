@@ -86,7 +86,7 @@ type Terminal struct {
 
 	// history contains previously entered commands so that they can be
 	// accessed with the up and down keys.
-	history stRingBuffer
+	history *stRingBuffer
 	// historyIndex stores the currently accessed history entry, where zero
 	// means the immediately previous entry.
 	historyIndex int
@@ -94,6 +94,10 @@ type Terminal struct {
 	// the incomplete, initial line. That value is stored in
 	// historyPending.
 	historyPending string
+	// autoHistory, if true, causes lines to be automatically added to the history.
+	// If false, call AddToHistory to add lines to the history for instance only adding
+	// successful commands. Defaults to true. This is controlled through AutoHistory(bool).
+	autoHistory bool
 }
 
 // NewTerminal runs a VT100 terminal on the given ReadWriter. If the ReadWriter is
@@ -109,6 +113,8 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 		termHeight:   24,
 		echo:         true,
 		historyIndex: -1,
+		history:      NewHistory(DefaultHistoryEntries),
+		autoHistory:  true,
 	}
 }
 
@@ -771,8 +777,10 @@ func (t *Terminal) readLine() (line string, err error) {
 		t.outBuf = t.outBuf[:0]
 		if lineOk {
 			if t.echo {
-				t.historyIndex = -1
-				t.history.Add(line)
+				t.historyIndex = -1 // Resets the key up behavior/historyPending.
+				if t.autoHistory {
+					t.history.Add(line)
+				}
 			}
 			if lineIsPasted {
 				err = ErrPasteIndicator
@@ -795,6 +803,54 @@ func (t *Terminal) readLine() (line string, err error) {
 
 		t.remainder = t.inBuf[:n+len(t.remainder)]
 	}
+}
+
+// History returns a slice of strings containing the history of entered commands so far.
+func (t *Terminal) History() []string {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	res := []string{}
+	for i := 0; ; i++ {
+		c, ok := t.history.NthPreviousEntry(i)
+		if !ok {
+			break
+		}
+		res = append(res, c)
+	}
+	return res
+}
+
+// NewHistory resets the history to one of a given capacity.
+func (t *Terminal) NewHistory(capacity int) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	t.history = NewHistory(capacity)
+}
+
+// AddToHistory populates history.
+func (t *Terminal) AddToHistory(entry ...string) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	for _, e := range entry {
+		t.history.Add(e)
+	}
+}
+
+// AutoHistory sets whether lines are automatically added to the history
+// before being returned by ReadLine() or not. Defaults to true.
+func (t *Terminal) AutoHistory(onOff bool) {
+	t.lock.Lock()
+	t.autoHistory = onOff
+	t.lock.Unlock()
+}
+
+// ReplaceLatest replaces the most recent history entry with the given string.
+// Enables to add invalid commands to the history for editing purpose and
+// replace them with the corrected version. Returns the replaced entry.
+func (t *Terminal) ReplaceLatest(entry string) string {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	return t.history.Replace(entry)
 }
 
 // SetPrompt sets the prompt to be used when reading subsequent lines.
@@ -915,18 +971,38 @@ type stRingBuffer struct {
 	size int
 }
 
-func (s *stRingBuffer) Add(a string) {
-	if s.entries == nil {
-		const defaultNumEntries = 100
-		s.entries = make([]string, defaultNumEntries)
-		s.max = defaultNumEntries
+// Creates a new ring buffer of strings with the given capacity.
+func NewHistory(capacity int) *stRingBuffer {
+	return &stRingBuffer{
+		entries: make([]string, capacity),
+		max:     capacity,
 	}
+}
 
+// DefaultHistoryEntries is the default number of entries in the history.
+// History index 1-99 prints using %02d.
+const DefaultHistoryEntries = 99
+
+func (s *stRingBuffer) Add(a string) {
+	if s.entries[s.head] == a {
+		// Already there at the top, so don't add.
+		// Also has the nice side effect of ignoring empty strings,
+		// no s.size check on purpose.
+		return
+	}
 	s.head = (s.head + 1) % s.max
 	s.entries[s.head] = a
 	if s.size < s.max {
 		s.size++
 	}
+}
+
+// Replace theoretically could panic on an empty ring buffer but
+// it's harmless on strings.
+func (s *stRingBuffer) Replace(a string) string {
+	previous := s.entries[s.head]
+	s.entries[s.head] = a
+	return previous
 }
 
 // NthPreviousEntry returns the value passed to the nth previous call to Add.
