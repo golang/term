@@ -950,7 +950,7 @@ func (s *stRingBuffer) Add(a string) {
 	}
 }
 
-// NthPreviousEntry returns the value passed to the nth previous call to Add.
+// At returns the value passed to the nth previous call to Add.
 // If n is zero then the immediately prior value is returned, if one, then the
 // next most recent, and so on. If such an element doesn't exist then ok is
 // false.
