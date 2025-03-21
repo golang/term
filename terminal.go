@@ -793,7 +793,9 @@ func (t *Terminal) readLine() (line string, err error) {
 		if lineOk {
 			if t.echo {
 				t.historyIndex = -1
-				t.History.Add(line)
+				t.lock.Unlock()
+				t.History.Add(line) // so this can output without deadlock.
+				t.lock.Lock()
 			}
 			if lineIsPasted {
 				err = ErrPasteIndicator
