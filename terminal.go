@@ -468,6 +468,20 @@ func visualLength(runes []rune) int {
 	return length
 }
 
+// histroryAt unlocks the terminal and relocks it while calling History.At.
+func (t *Terminal) historyAt(idx int) (string, bool) {
+	t.lock.Unlock()
+	defer t.lock.Lock()
+	return t.History.At(idx)
+}
+
+// historyAdd unlocks the terminal and relocks it while calling History.Add.
+func (t *Terminal) historyAdd(entry string) {
+	t.lock.Unlock()     // Unlock to avoid deadlock if History methods use the output writer.
+	defer t.lock.Lock() // panic in Add protection.
+	t.History.Add(entry)
+}
+
 // handleKey processes the given key and, optionally, returns a line of text
 // that the user has entered.
 func (t *Terminal) handleKey(key rune) (line string, ok bool) {
@@ -515,7 +529,7 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 		t.pos = len(t.line)
 		t.moveCursorToPos(t.pos)
 	case keyUp:
-		entry, ok := t.History.At(t.historyIndex + 1)
+		entry, ok := t.historyAt(t.historyIndex + 1)
 		if !ok {
 			return "", false
 		}
@@ -534,7 +548,7 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 			t.setLine(runes, len(runes))
 			t.historyIndex--
 		default:
-			entry, ok := t.History.At(t.historyIndex - 1)
+			entry, ok := t.historyAt(t.historyIndex - 1)
 			if ok {
 				t.historyIndex--
 				runes := []rune(entry)
@@ -799,9 +813,7 @@ func (t *Terminal) readLine() (line string, err error) {
 		if lineOk {
 			if t.echo {
 				t.historyIndex = -1
-				t.lock.Unlock()
-				t.History.Add(line) // so this can output without deadlock.
-				t.lock.Lock()
+				t.historyAdd(line) // so this can output without deadlock.
 			}
 			if lineIsPasted {
 				err = ErrPasteIndicator
