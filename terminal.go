@@ -36,6 +36,21 @@ var vt100EscapeCodes = EscapeCodes{
 	Reset: []byte{keyEscape, '[', '0', 'm'},
 }
 
+// The History interface provides a way to replace the default automatic
+// 100 slots ringbuffer implementation.
+type History interface {
+	// Add will be called by Terminal to add a new line into the history.
+	// An implementation may decide to not add every lines by ignoring calls
+	// to this function (from Terminal.ReadLine) and to only add validated
+	// entries out of band.
+	Add(entry string)
+
+	// At retrieves a line from history.
+	// idx 0 should be the most recent entry.
+	// return false when out of range.
+	At(idx int) (string, bool)
+}
+
 // Terminal contains the state for running a VT100 terminal that is capable of
 // reading lines of input.
 type Terminal struct {
@@ -86,9 +101,11 @@ type Terminal struct {
 	remainder []byte
 	inBuf     [256]byte
 
-	// history contains previously entered commands so that they can be
+	// History allows to replace the default implementation of the history
+	// which contains previously entered commands so that they can be
 	// accessed with the up and down keys.
-	history stRingBuffer
+	// It's not safe to call ReadLine and methods on History concurrently.
+	History History
 	// historyIndex stores the currently accessed history entry, where zero
 	// means the immediately previous entry.
 	historyIndex int
@@ -111,6 +128,7 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 		termHeight:   24,
 		echo:         true,
 		historyIndex: -1,
+		History:      &stRingBuffer{},
 	}
 }
 
@@ -450,6 +468,20 @@ func visualLength(runes []rune) int {
 	return length
 }
 
+// histroryAt unlocks the terminal and relocks it while calling History.At.
+func (t *Terminal) historyAt(idx int) (string, bool) {
+	t.lock.Unlock()
+	defer t.lock.Lock()
+	return t.History.At(idx)
+}
+
+// historyAdd unlocks the terminal and relocks it while calling History.Add.
+func (t *Terminal) historyAdd(entry string) {
+	t.lock.Unlock()     // Unlock to avoid deadlock if History methods use the output writer.
+	defer t.lock.Lock() // panic in Add protection.
+	t.History.Add(entry)
+}
+
 // handleKey processes the given key and, optionally, returns a line of text
 // that the user has entered.
 func (t *Terminal) handleKey(key rune) (line string, ok bool) {
@@ -497,7 +529,7 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 		t.pos = len(t.line)
 		t.moveCursorToPos(t.pos)
 	case keyUp:
-		entry, ok := t.history.NthPreviousEntry(t.historyIndex + 1)
+		entry, ok := t.historyAt(t.historyIndex + 1)
 		if !ok {
 			return "", false
 		}
@@ -516,7 +548,7 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 			t.setLine(runes, len(runes))
 			t.historyIndex--
 		default:
-			entry, ok := t.history.NthPreviousEntry(t.historyIndex - 1)
+			entry, ok := t.historyAt(t.historyIndex - 1)
 			if ok {
 				t.historyIndex--
 				runes := []rune(entry)
@@ -781,7 +813,7 @@ func (t *Terminal) readLine() (line string, err error) {
 		if lineOk {
 			if t.echo {
 				t.historyIndex = -1
-				t.history.Add(line)
+				t.historyAdd(line) // so this can output without deadlock.
 			}
 			if lineIsPasted {
 				err = ErrPasteIndicator
@@ -938,11 +970,11 @@ func (s *stRingBuffer) Add(a string) {
 	}
 }
 
-// NthPreviousEntry returns the value passed to the nth previous call to Add.
+// At returns the value passed to the nth previous call to Add.
 // If n is zero then the immediately prior value is returned, if one, then the
 // next most recent, and so on. If such an element doesn't exist then ok is
 // false.
-func (s *stRingBuffer) NthPreviousEntry(n int) (value string, ok bool) {
+func (s *stRingBuffer) At(n int) (value string, ok bool) {
 	if n < 0 || n >= s.size {
 		return "", false
 	}
