@@ -36,13 +36,18 @@ var vt100EscapeCodes = EscapeCodes{
 	Reset: []byte{keyEscape, '[', '0', 'm'},
 }
 
+// The History interface provides a way to replace the default automatic
+// 100 slots ringbuffer implementation.
 type History interface {
-	// adds a new line into the history
-	Add(string)
+	// Add will be called by Terminal to add a new line into the history.
+	// An implementation may decide to not add every lines by ignoring calls
+	// to this function (from Terminal.ReadLine) and to only add validated
+	// entries out of band.
+	Add(entry string)
 
-	// retrieves a line from history
-	// 0 should be the most recent entry
-	// ok = false when out of range
+	// At retrieves a line from history.
+	// idx 0 should be the most recent entry.
+	// return false when out of range.
 	At(idx int) (string, bool)
 }
 
@@ -99,6 +104,7 @@ type Terminal struct {
 	// History allows to replace the default implementation of the history
 	// which contains previously entered commands so that they can be
 	// accessed with the up and down keys.
+	// It's not safe to call ReadLine and methods on History concurrently.
 	History History
 	// historyIndex stores the currently accessed history entry, where zero
 	// means the immediately previous entry.
