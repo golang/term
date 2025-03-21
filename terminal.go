@@ -36,6 +36,16 @@ var vt100EscapeCodes = EscapeCodes{
 	Reset: []byte{keyEscape, '[', '0', 'm'},
 }
 
+type History interface {
+	// adds a new line into the history
+	Add(string)
+
+	// retrieves a line from history
+	// 0 should be the most recent entry
+	// ok = false when out of range
+	At(idx int) (string, bool)
+}
+
 // Terminal contains the state for running a VT100 terminal that is capable of
 // reading lines of input.
 type Terminal struct {
@@ -86,9 +96,10 @@ type Terminal struct {
 	remainder []byte
 	inBuf     [256]byte
 
-	// history contains previously entered commands so that they can be
+	// History allows to replace the default implementation of the history
+	// which contains previously entered commands so that they can be
 	// accessed with the up and down keys.
-	history stRingBuffer
+	History History
 	// historyIndex stores the currently accessed history entry, where zero
 	// means the immediately previous entry.
 	historyIndex int
@@ -111,6 +122,7 @@ func NewTerminal(c io.ReadWriter, prompt string) *Terminal {
 		termHeight:   24,
 		echo:         true,
 		historyIndex: -1,
+		History:      &stRingBuffer{},
 	}
 }
 
@@ -497,7 +509,7 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 		t.pos = len(t.line)
 		t.moveCursorToPos(t.pos)
 	case keyUp:
-		entry, ok := t.history.NthPreviousEntry(t.historyIndex + 1)
+		entry, ok := t.History.At(t.historyIndex + 1)
 		if !ok {
 			return "", false
 		}
@@ -516,7 +528,7 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 			t.setLine(runes, len(runes))
 			t.historyIndex--
 		default:
-			entry, ok := t.history.NthPreviousEntry(t.historyIndex - 1)
+			entry, ok := t.History.At(t.historyIndex - 1)
 			if ok {
 				t.historyIndex--
 				runes := []rune(entry)
@@ -781,7 +793,7 @@ func (t *Terminal) readLine() (line string, err error) {
 		if lineOk {
 			if t.echo {
 				t.historyIndex = -1
-				t.history.Add(line)
+				t.History.Add(line)
 			}
 			if lineIsPasted {
 				err = ErrPasteIndicator
@@ -942,7 +954,7 @@ func (s *stRingBuffer) Add(a string) {
 // If n is zero then the immediately prior value is returned, if one, then the
 // next most recent, and so on. If such an element doesn't exist then ok is
 // false.
-func (s *stRingBuffer) NthPreviousEntry(n int) (value string, ok bool) {
+func (s *stRingBuffer) At(n int) (value string, ok bool) {
 	if n < 0 || n >= s.size {
 		return "", false
 	}
