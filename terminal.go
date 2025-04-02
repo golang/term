@@ -45,6 +45,9 @@ type History interface {
 	// entries out of band.
 	Add(entry string)
 
+	// Len returns the current number of entries in the history.
+	Len() int
+
 	// At retrieves a line from history.
 	// idx 0 should be the most recent entry.
 	// return false when out of range.
@@ -968,6 +971,10 @@ func (s *stRingBuffer) Add(a string) {
 	if s.size < s.max {
 		s.size++
 	}
+}
+
+func (s *stRingBuffer) Len() int {
+	return s.size
 }
 
 // At returns the value passed to the nth previous call to Add.
