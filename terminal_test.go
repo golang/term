@@ -6,6 +6,7 @@ package term
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"runtime"
