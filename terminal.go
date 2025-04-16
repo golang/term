@@ -481,8 +481,8 @@ func visualLength(runes []rune) int {
 
 // histroryAt unlocks the terminal and relocks it while calling History.At.
 func (t *Terminal) historyAt(idx int) (string, bool) {
-	t.lock.Unlock()
-	defer t.lock.Lock()
+	t.lock.Unlock()     // Unlock to avoid deadlock if History methods use the output writer.
+	defer t.lock.Lock() // panic in At (or Len) protection.
 	if idx < 0 || idx >= t.History.Len() {
 		return "", false
 	}
@@ -827,7 +827,7 @@ func (t *Terminal) readLine() (line string, err error) {
 		if lineOk {
 			if t.echo {
 				t.historyIndex = -1
-				t.historyAdd(line) // so this can output without deadlock.
+				t.historyAdd(line)
 			}
 			if lineIsPasted {
 				err = ErrPasteIndicator
@@ -994,7 +994,7 @@ func (s *stRingBuffer) Len() int {
 // false.
 func (s *stRingBuffer) At(n int) string {
 	if n < 0 || n >= s.size {
-		panic(fmt.Sprintf("stRingBuffer: index [%d] out of range [0,%d)", n, s.size))
+		panic(fmt.Sprintf("term: history index [%d] out of range [0,%d)", n, s.size))
 	}
 	index := s.head - n
 	if index < 0 {
