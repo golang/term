@@ -6,6 +6,7 @@ package term
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"runtime"
 	"strconv"
@@ -38,20 +39,27 @@ var vt100EscapeCodes = EscapeCodes{
 
 // The History interface provides a way to replace the default automatic
 // 100 slots ringbuffer implementation.
+// A History provides a (possibly bounded) queue of input lines read by [ReadLine].
 type History interface {
+	// Add adds a new, most recent entry to the history.
+	// It is allowed to drop any entry, including
+	// the entry being added (e.g.,, if it's a whitespace-only entry),
+	// the least-recent entry (e.g., to keep the history bounded),
+	// or any other entry.
 	// Add will be called by Terminal to add a new line into the history.
 	// An implementation may decide to not add every lines by ignoring calls
 	// to this function (from Terminal.ReadLine) and to only add validated
 	// entries out of band.
 	Add(entry string)
 
-	// Len returns the current number of entries in the history.
+	// Len returns the number of entries in the history.
 	Len() int
 
-	// At retrieves a line from history.
-	// idx 0 should be the most recent entry.
-	// return false when out of range.
-	At(idx int) (string, bool)
+	// At returns an entry from the history.
+	// Index 0 is the most-recently added entry and
+	// index Len()-1 is the least-recently added entry.
+	// If index is < 0 or >= Len(), it panics.
+	At(idx int) string
 }
 
 // Terminal contains the state for running a VT100 terminal that is capable of
@@ -475,7 +483,10 @@ func visualLength(runes []rune) int {
 func (t *Terminal) historyAt(idx int) (string, bool) {
 	t.lock.Unlock()
 	defer t.lock.Lock()
-	return t.History.At(idx)
+	if idx < 0 || idx >= t.History.Len() {
+		return "", false
+	}
+	return t.History.At(idx), true
 }
 
 // historyAdd unlocks the terminal and relocks it while calling History.Add.
@@ -981,15 +992,15 @@ func (s *stRingBuffer) Len() int {
 // If n is zero then the immediately prior value is returned, if one, then the
 // next most recent, and so on. If such an element doesn't exist then ok is
 // false.
-func (s *stRingBuffer) At(n int) (value string, ok bool) {
+func (s *stRingBuffer) At(n int) string {
 	if n < 0 || n >= s.size {
-		return "", false
+		panic(fmt.Sprintf("stRingBuffer: index [%d] out of range [0,%d)", n, s.size))
 	}
 	index := s.head - n
 	if index < 0 {
 		index += s.max
 	}
-	return s.entries[index], true
+	return s.entries[index]
 }
 
 // readPasswordLine reads from reader until it finds \n or io.EOF.
