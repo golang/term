@@ -37,19 +37,18 @@ var vt100EscapeCodes = EscapeCodes{
 	Reset: []byte{keyEscape, '[', '0', 'm'},
 }
 
-// The History interface provides a way to replace the default automatic
-// 100 slots ringbuffer implementation.
-// A History provides a (possibly bounded) queue of input lines read by [ReadLine].
+// A History provides a (possibly bounded) queue of input lines read by [Terminal.ReadLine].
+//
+// The default implementation of History provides a simple ring buffer limited
+// to 100 slots. Clients can provide alternate implementations of History to
+// change this behavior.
 type History interface {
-	// Add adds a new, most recent entry to the history.
+	// Add adds will be called by [Terminal.ReadLine] to add
+	// a new, most recent entry to the history.
 	// It is allowed to drop any entry, including
-	// the entry being added (e.g.,, if it's a whitespace-only entry),
+	// the entry being added (e.g., if it's deemed an invalid entry),
 	// the least-recent entry (e.g., to keep the history bounded),
 	// or any other entry.
-	// Add will be called by Terminal to add a new line into the history.
-	// An implementation may decide to not add every lines by ignoring calls
-	// to this function (from Terminal.ReadLine) and to only add validated
-	// entries out of band.
 	Add(entry string)
 
 	// Len returns the number of entries in the history.
@@ -112,10 +111,12 @@ type Terminal struct {
 	remainder []byte
 	inBuf     [256]byte
 
-	// History allows to replace the default implementation of the history
-	// which contains previously entered commands so that they can be
-	// accessed with the up and down keys.
-	// It's not safe to call ReadLine and methods on History concurrently.
+	// History records and retrieves lines of input read by [ReadLine] which
+	// a user can retrieve and navigate using the up and down arrow keys.
+	//
+	// It is not safe to call ReadLine concurrently with any methods on History.
+	//
+	// [NewTerminal] sets this to an implementation that records the last 100 lines of input.
 	History History
 	// historyIndex stores the currently accessed history entry, where zero
 	// means the immediately previous entry.
