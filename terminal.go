@@ -43,7 +43,7 @@ var vt100EscapeCodes = EscapeCodes{
 // to 100 slots. Clients can provide alternate implementations of History to
 // change this behavior.
 type History interface {
-	// Add adds will be called by [Terminal.ReadLine] to add
+	// Add will be called by [Terminal.ReadLine] to add
 	// a new, most recent entry to the history.
 	// It is allowed to drop any entry, including
 	// the entry being added (e.g., if it's deemed an invalid entry),
