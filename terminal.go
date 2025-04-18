@@ -38,10 +38,6 @@ var vt100EscapeCodes = EscapeCodes{
 }
 
 // A History provides a (possibly bounded) queue of input lines read by [Terminal.ReadLine].
-//
-// The default implementation of History provides a simple ring buffer limited
-// to 100 slots. Clients can provide alternate implementations of History to
-// change this behavior.
 type History interface {
 	// Add will be called by [Terminal.ReadLine] to add
 	// a new, most recent entry to the history.
@@ -116,7 +112,8 @@ type Terminal struct {
 	//
 	// It is not safe to call ReadLine concurrently with any methods on History.
 	//
-	// [NewTerminal] sets this to an implementation that records the last 100 lines of input.
+	// [NewTerminal] sets this to a default implementation that records the
+	// last 100 lines of input.
 	History History
 	// historyIndex stores the currently accessed history entry, where zero
 	// means the immediately previous entry.
