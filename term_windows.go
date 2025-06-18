@@ -20,7 +20,7 @@ func isTerminal(fd int) bool {
 	return err == nil
 }
 
-// XXX: This is intended to be used on a console input handle.
+// This is intended to be used on a console input handle.
 // See https://learn.microsoft.com/en-us/windows/console/setconsolemode
 func makeRaw(fd int) (*State, error) {
 	var st uint32
