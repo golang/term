@@ -16,6 +16,8 @@
 // Note that on non-Unix systems os.Stdin.Fd() may not be 0.
 package term
 
+import "context"
+
 // State contains the state of a terminal.
 type State struct {
 	state
@@ -57,4 +59,11 @@ func GetSize(fd int) (width, height int, err error) {
 // returned does not include the \n.
 func ReadPassword(fd int) ([]byte, error) {
 	return readPassword(fd)
+}
+
+// ReadPasswordWithContext reads a line of input from a terminal without local
+// echo. This call is similar to ReadPassword but allows the input to be cancelled
+// via the provided Context.
+func ReadPasswordWithContext(fd int, ctx context.Context) ([]byte, error) {
+	return readPasswordWithContext(fd, ctx)
 }
