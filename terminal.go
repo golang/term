@@ -146,6 +146,7 @@ const (
 	keyCtrlD     = 4
 	keyCtrlU     = 21
 	keyEnter     = '\r'
+	keyLF        = '\n' // technically not a key (unless a user uses Ctrl+J), but needed for bracketed paste mode with `\n`s.
 	keyEscape    = 27
 	keyBackspace = 127
 	keyUnknown   = 0xd800 /* UTF-16 surrogate area */ + iota
@@ -567,7 +568,7 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 				t.setLine(runes, len(runes))
 			}
 		}
-	case keyEnter:
+	case keyEnter, keyLF:
 		t.moveCursorToPos(len(t.line))
 		t.queue([]rune("\r\n"))
 		line = string(t.line)
