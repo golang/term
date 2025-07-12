@@ -498,7 +498,7 @@ func (t *Terminal) historyAdd(entry string) {
 // handleKey processes the given key and, optionally, returns a line of text
 // that the user has entered.
 func (t *Terminal) handleKey(key rune) (line string, ok bool) {
-	if t.pasteActive && key != keyEnter {
+	if t.pasteActive && key != keyEnter && key != keyLF {
 		t.addKeyToLine(key)
 		return
 	}
