@@ -813,6 +813,10 @@ func (t *Terminal) readLine() (line string, err error) {
 			if !t.pasteActive {
 				lineIsPasted = false
 			}
+			// If we have CR, consume LF if present (CRLF sequence) to avoid returning an extra empty line.
+			if key == keyEnter && len(rest) > 0 && rest[0] == keyLF {
+				rest = rest[1:]
+			}
 			line, lineOk = t.handleKey(key)
 		}
 		if len(rest) > 0 {
