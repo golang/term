@@ -7,6 +7,10 @@
 package term
 
 import (
+	"context"
+	"syscall"
+	"time"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -88,4 +92,65 @@ func readPassword(fd int) ([]byte, error) {
 	defer unix.IoctlSetTermios(fd, ioctlWriteTermios, termios)
 
 	return readPasswordLine(passwordReader(fd))
+}
+
+func readPasswordWithContext(fd int, ctx context.Context) ([]byte, error) {
+	termios, err := unix.IoctlGetTermios(fd, ioctlReadTermios)
+	nonblocking := false
+	if err != nil {
+		return nil, err
+	}
+	newState := *termios
+	newState.Lflag &^= unix.ECHO
+	newState.Lflag |= unix.ICANON | unix.ISIG
+	newState.Iflag |= unix.ICRNL
+
+	if err := unix.IoctlSetTermios(fd, ioctlWriteTermios, &newState); err != nil {
+		return nil, err
+	}
+	defer func() {
+		if nonblocking {
+			unix.SetNonblock(fd, false)
+		}
+		unix.IoctlSetTermios(fd, ioctlWriteTermios, termios)
+	}()
+
+	// Set nonblocking IO
+	if err := unix.SetNonblock(fd, true); err != nil {
+		return nil, err
+	}
+	nonblocking = true
+
+	var ret []byte
+	var buf [1]byte
+	for {
+		if ctx.Err() != nil {
+			return ret, ctx.Err()
+		}
+		n, err := unix.Read(fd, buf[:])
+		if err != nil {
+			// Check for nonblocking error
+			if serr, ok := err.(syscall.Errno); ok {
+				if serr == 11 {
+					// Add (hopefully not noticable) latency to prevent CPU hogging
+					time.Sleep(50 * time.Millisecond)
+					continue
+				}
+			}
+			return ret, err
+		}
+		if n > 0 {
+			switch buf[0] {
+			case '\b':
+				if len(ret) > 0 {
+					ret = ret[:len(ret)-1]
+				}
+			case '\n':
+				return ret, nil
+			default:
+				ret = append(ret, buf[0])
+			}
+			continue
+		}
+	}
 }
