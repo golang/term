@@ -313,7 +313,11 @@ func TestRender(t *testing.T) {
 func TestCRLF(t *testing.T) {
 	c := &MockTerminal{
 		toSend: []byte("line1\rline2\r\nline3\n"),
-		// bytesPerRead 0 means read all at once - CR+LF need to be in same read which is what terminals would do.
+		// bytesPerRead 0 in this test means read all at once
+		// CR+LF need to be in same read for ReadLine to not produce an extra empty line
+		// which is what terminals do for reasonably small paste. if way many lines are pasted
+		// and going over say 1k-16k buffer, readline current implementation will possibly generate 1
+		// extra empty line, if the CR is in chunk1 and LF in chunk2 (and that's fine).
 	}
 
 	ss := NewTerminal(c, "> ")
