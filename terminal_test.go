@@ -6,6 +6,8 @@ package term
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"runtime"
@@ -209,8 +211,20 @@ var keyPressTests = []struct {
 		throwAwayLines: 1,
 	},
 	{
+		// Newline in bracketed paste mode should still work.
+		in:             "abc\x1b[200~d\nefg\x1b[201~h\r",
+		line:           "efgh",
+		throwAwayLines: 1,
+	},
+	{
 		// Lines consisting entirely of pasted data should be indicated as such.
 		in:   "\x1b[200~a\r",
+		line: "a",
+		err:  ErrPasteIndicator,
+	},
+	{
+		// Lines consisting entirely of pasted data should be indicated as such (\n paste).
+		in:   "\x1b[200~a\n",
 		line: "a",
 		err:  ErrPasteIndicator,
 	},
@@ -293,6 +307,32 @@ func TestRender(t *testing.T) {
 				break
 			}
 		}
+	}
+}
+
+func TestCRLF(t *testing.T) {
+	c := &MockTerminal{
+		toSend: []byte("line1\rline2\r\nline3\n"),
+		// bytesPerRead 0 means read all at once - CR+LF need to be in same read which is what terminals would do.
+	}
+
+	ss := NewTerminal(c, "> ")
+	for i := range 3 {
+		line, err := ss.ReadLine()
+		if err != nil {
+			t.Fatalf("failed to read line %d: %v", i+1, err)
+		}
+		expected := fmt.Sprintf("line%d", i+1)
+		if line != expected {
+			t.Fatalf("expected '%s', got '%s'", expected, line)
+		}
+	}
+	line, err := ss.ReadLine()
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("expected EOF after 3 lines, got '%s' with error %v", line, err)
+	}
+	if line != "" {
+		t.Fatalf("expected empty line after EOF, got '%s'", line)
 	}
 }
 
