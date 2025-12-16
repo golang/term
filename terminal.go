@@ -162,6 +162,7 @@ const (
 	keyDeleteLine
 	keyDelete
 	keyClearScreen
+	keyTranspose
 	keyPasteStart
 	keyPasteEnd
 )
@@ -195,6 +196,8 @@ func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 			return keyDeleteLine, b[1:]
 		case 12: // ^L
 			return keyClearScreen, b[1:]
+		case 20: // ^T
+			return keyTranspose, b[1:]
 		case 23: // ^W
 			return keyDeleteWord, b[1:]
 		case 14: // ^N
@@ -605,6 +608,24 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 		}
 	case keyCtrlU:
 		t.eraseNPreviousChars(t.pos)
+	case keyTranspose:
+		// This transposes the two characters around the cursor and advances the cursor. Best-effort.
+		if len(t.line) < 2 || t.pos < 1 {
+			return
+		}
+		swap := t.pos
+		if swap == len(t.line) {
+			swap-- // special: at end of line, swap previous two chars
+		}
+		t.line[swap-1], t.line[swap] = t.line[swap], t.line[swap-1]
+		if t.pos < len(t.line) {
+			t.pos++
+		}
+		if t.echo {
+			t.moveCursorToPos(swap - 1)
+			t.writeLine(t.line[swap-1:])
+			t.moveCursorToPos(t.pos)
+		}
 	case keyClearScreen:
 		// Erases the screen and moves the cursor to the home position.
 		t.queue([]rune("\x1b[2J\x1b[H"))

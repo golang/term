@@ -263,6 +263,66 @@ var keyPressTests = []struct {
 		in:   "abc\x1b[H\x1b[3~\x1b[3~\r",
 		line: "c",
 	},
+	{
+		// Ctrl-T at end of line: transpose last two chars
+		in:   "abc\x14\r",
+		line: "acb",
+	},
+	{
+		// Ctrl-T at end then type: cursor stays at end
+		in:   "abc\x14N\r",
+		line: "acbN",
+	},
+	{
+		// Ctrl-T in middle: transpose chars before cursor, move cursor forward
+		in:   "abc\x1b[D\x14\r",
+		line: "acb",
+	},
+	{
+		// Ctrl-T in middle then type: cursor moved past swapped char
+		in:   "abcd\x1b[D\x1b[D\x14N\r",
+		line: "acbNd",
+	},
+	{
+		// Ctrl-T at pos 1 then type: cursor moves to pos 2
+		in:   "abc\x1b[H\x1b[C\x14N\r",
+		line: "baNc",
+	},
+	{
+		// Ctrl-T with one char: do nothing
+		in:   "a\x14\r",
+		line: "a",
+	},
+	{
+		// Ctrl-T with one char then type: cursor unchanged
+		in:   "a\x14N\r",
+		line: "aN",
+	},
+	{
+		// Ctrl-T at beginning: do nothing
+		in:   "ab\x1b[H\x14\r",
+		line: "ab",
+	},
+	{
+		// Ctrl-T at beginning then type: cursor unchanged, inserts at start
+		in:   "ab\x1b[H\x14N\r",
+		line: "Nab",
+	},
+	{
+		// Ctrl-T on empty line: do nothing
+		in:   "\x14\r",
+		line: "",
+	},
+	{
+		// Multiple Ctrl-T at end: keeps swapping last two
+		in:   "abc\x14\x14\r",
+		line: "abc",
+	},
+	{
+		// Multiple Ctrl-T in middle: progresses through line
+		in:   "abcd\x1b[D\x1b[D\x1b[D\x14\x14\x14\r",
+		line: "bcda",
+	},
 }
 
 func TestKeyPresses(t *testing.T) {
