@@ -238,6 +238,31 @@ var keyPressTests = []struct {
 		in:  "a\003\r",
 		err: io.EOF,
 	},
+	{
+		// Delete at EOL: nothing
+		in:   "abc\x1b[3~\r",
+		line: "abc",
+	},
+	{
+		// Delete in empty string: nothing
+		in:   "\x1b[3~\r",
+		line: "",
+	},
+	{
+		// Move left, delete: delete 'c'
+		in:   "abc\x1b[D\x1b[3~\r",
+		line: "ab",
+	},
+	{
+		// Home, delete: delete 'a'
+		in:   "abc\x1b[H\x1b[3~\r",
+		line: "bc",
+	},
+	{
+		// Home, delete twice: delete 'a' and 'b'
+		in:   "abc\x1b[H\x1b[3~\x1b[3~\r",
+		line: "c",
+	},
 }
 
 func TestKeyPresses(t *testing.T) {
@@ -387,7 +412,7 @@ func TestReadPasswordLineEnd(t *testing.T) {
 		input string
 		want  string
 	}
-	var tests = []testType{
+	tests := []testType{
 		{"\r\n", ""},
 		{"test\r\n", "test"},
 		{"test\r", "test"},

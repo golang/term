@@ -160,6 +160,7 @@ const (
 	keyEnd
 	keyDeleteWord
 	keyDeleteLine
+	keyDelete
 	keyClearScreen
 	keyPasteStart
 	keyPasteEnd
@@ -226,6 +227,10 @@ func bytesToKey(b []byte, pasteActive bool) (rune, []byte) {
 		case 'F':
 			return keyEnd, b[3:]
 		}
+	}
+
+	if !pasteActive && len(b) >= 4 && b[0] == keyEscape && b[1] == '[' && b[2] == '3' && b[3] == '~' {
+		return keyDelete, b[4:]
 	}
 
 	if !pasteActive && len(b) >= 6 && b[0] == keyEscape && b[1] == '[' && b[2] == '1' && b[3] == ';' && b[4] == '3' {
@@ -590,7 +595,7 @@ func (t *Terminal) handleKey(key rune) (line string, ok bool) {
 		}
 		t.line = t.line[:t.pos]
 		t.moveCursorToPos(t.pos)
-	case keyCtrlD:
+	case keyCtrlD, keyDelete:
 		// Erase the character under the current position.
 		// The EOF case when the line is empty is handled in
 		// readLine().
