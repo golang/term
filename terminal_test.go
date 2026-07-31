@@ -56,6 +56,44 @@ func TestClose(t *testing.T) {
 	}
 }
 
+func TestReadLineProcessesDataWithEOF(t *testing.T) {
+	c := &dataAndEOFReader{data: []byte("line\r")}
+	ss := NewTerminal(c, "> ")
+	line, err := ss.ReadLine()
+	if err != nil {
+		t.Fatalf("ReadLine returned error with line data: %v", err)
+	}
+	if line != "line" {
+		t.Fatalf("ReadLine returned %q, want %q", line, "line")
+	}
+
+	line, err = ss.ReadLine()
+	if line != "" || err != io.EOF {
+		t.Fatalf("ReadLine after buffered data returned (%q, %v), want (%q, EOF)", line, err, "")
+	}
+	if c.reads != 1 {
+		t.Fatalf("ReadLine performed %d reads, want 1", c.reads)
+	}
+}
+
+type dataAndEOFReader struct {
+	data  []byte
+	reads int
+}
+
+func (r *dataAndEOFReader) Read(p []byte) (int, error) {
+	if r.reads > 0 {
+		return 0, io.EOF
+	}
+	r.reads++
+	n := copy(p, r.data)
+	return n, io.EOF
+}
+
+func (r *dataAndEOFReader) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
 var keyPressTests = []struct {
 	in             string
 	line           string
